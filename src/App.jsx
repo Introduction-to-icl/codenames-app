@@ -20,16 +20,17 @@ const words = [
   "電話", "宝石", "火山", "野球", "城",
 ];
 
-const shuffle = (array) => {
-  return [...array].sort(() => Math.random() - 0.5);
-};
+const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
 
-const createCards = () => {
+const createCards = (firstTeam) => {
   const selectedWords = shuffle(words).slice(0, 25);
 
+  const redCount = firstTeam === "red" ? 9 : 8;
+  const blueCount = firstTeam === "blue" ? 9 : 8;
+
   const types = shuffle([
-    ...Array(9).fill("red"),
-    ...Array(8).fill("blue"),
+    ...Array(redCount).fill("red"),
+    ...Array(blueCount).fill("blue"),
     ...Array(7).fill("civilian"),
     "assassin",
   ]);
@@ -47,9 +48,12 @@ function App() {
   const [spymasterMode, setSpymasterMode] = useState(false);
 
   const createRoom = async () => {
+    const firstTeam = Math.random() < 0.5 ? "red" : "blue";
+
     const roomRef = await addDoc(collection(db, "rooms"), {
-      cards: createCards(),
-      turn: "red",
+      cards: createCards(firstTeam),
+      turn: firstTeam,
+      firstTeam,
       winner: null,
       createdAt: serverTimestamp(),
     });
@@ -61,7 +65,6 @@ function App() {
     if (!room || room.winner) return;
 
     const newCards = [...room.cards];
-
     if (newCards[index].revealed) return;
 
     newCards[index] = {
@@ -93,7 +96,7 @@ function App() {
   };
 
   const switchTurn = async () => {
-    if (!room) return;
+    if (!room || room.winner) return;
 
     await updateDoc(doc(db, "rooms", roomId), {
       turn: room.turn === "red" ? "blue" : "red",
@@ -111,6 +114,14 @@ function App() {
 
     return () => unsubscribe();
   }, [roomId]);
+
+  const redLeft =
+    room?.cards?.filter((card) => card.type === "red" && !card.revealed)
+      .length ?? 0;
+
+  const blueLeft =
+    room?.cards?.filter((card) => card.type === "blue" && !card.revealed)
+      .length ?? 0;
 
   return (
     <div className="app">
@@ -137,8 +148,18 @@ function App() {
         {room && (
           <>
             <p>
+              <strong>先攻:</strong>{" "}
+              {room.firstTeam === "red" ? "🔴 赤チーム" : "🔵 青チーム"}
+            </p>
+
+            <p>
               <strong>現在のターン:</strong>{" "}
               {room.turn === "red" ? "🔴 赤チーム" : "🔵 青チーム"}
+            </p>
+
+            <p>
+              🔴 赤残り: <strong>{redLeft}</strong> / 🔵 青残り:{" "}
+              <strong>{blueLeft}</strong>
             </p>
 
             <button className="turn-button" onClick={switchTurn}>
