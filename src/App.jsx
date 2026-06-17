@@ -148,7 +148,7 @@ function App() {
 
   return (
     <div className="app">
-      <h1 className="title">🕵️ コードネーム風ゲーム</h1>
+      <h1 className="title">🕵️ CodeNames</h1>
 
       <div className="panel">
         <p>
