@@ -7,7 +7,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { db } from "./firebase";
 
 const words = [
@@ -45,7 +45,13 @@ const createCards = (firstTeam) => {
 function App() {
   const [roomId, setRoomId] = useState("");
   const [room, setRoom] = useState(null);
-  const [spymasterMode, setSpymasterMode] = useState(false);
+
+  const role = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("role") === "spymaster" ? "spymaster" : "player";
+  }, []);
+
+  const isSpymaster = role === "spymaster";
 
   const createRoom = async () => {
     const firstTeam = Math.random() < 0.5 ? "red" : "blue";
@@ -62,7 +68,7 @@ function App() {
   };
 
   const revealCard = async (index) => {
-    if (!room || room.winner) return;
+    if (!room || room.winner || isSpymaster) return;
 
     const newCards = [...room.cards];
     if (newCards[index].revealed) return;
@@ -115,6 +121,23 @@ function App() {
     return () => unsubscribe();
   }, [roomId]);
 
+  const playerUrl = roomId
+    ? `${window.location.origin}?room=${roomId}`
+    : "";
+
+  const spymasterUrl = roomId
+    ? `${window.location.origin}?role=spymaster&room=${roomId}`
+    : "";
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlRoomId = params.get("room");
+
+    if (urlRoomId) {
+      setRoomId(urlRoomId);
+    }
+  }, []);
+
   const redLeft =
     room?.cards?.filter((card) => card.type === "red" && !card.revealed)
       .length ?? 0;
@@ -128,6 +151,11 @@ function App() {
       <h1 className="title">🕵️ コードネーム風ゲーム</h1>
 
       <div className="panel">
+        <p>
+          <strong>現在の画面:</strong>{" "}
+          {isSpymaster ? "🕶 スパイマスター" : "🎮 プレイヤー"}
+        </p>
+
         <button className="primary-button" onClick={createRoom}>
           ルーム作成
         </button>
@@ -144,6 +172,22 @@ function App() {
         <p>
           <strong>現在のルームID:</strong> {roomId}
         </p>
+
+        {roomId && (
+          <>
+            <p>
+              <strong>プレイヤー用URL:</strong>
+              <br />
+              <a href={playerUrl}>{playerUrl}</a>
+            </p>
+
+            <p>
+              <strong>スパイマスター用URL:</strong>
+              <br />
+              <a href={spymasterUrl}>{spymasterUrl}</a>
+            </p>
+          </>
+        )}
 
         {room && (
           <>
@@ -162,18 +206,11 @@ function App() {
               <strong>{blueLeft}</strong>
             </p>
 
-            <button className="turn-button" onClick={switchTurn}>
-              ターン交代
-            </button>
-
-            <label style={{ marginLeft: 16 }}>
-              <input
-                type="checkbox"
-                checked={spymasterMode}
-                onChange={(e) => setSpymasterMode(e.target.checked)}
-              />
-              スパイマスター表示
-            </label>
+            {!isSpymaster && (
+              <button className="turn-button" onClick={switchTurn}>
+                ターン交代
+              </button>
+            )}
 
             {room.winner && (
               <h2 className="winner">
@@ -190,7 +227,7 @@ function App() {
             key={index}
             onClick={() => revealCard(index)}
             className={`card ${
-              card.revealed || spymasterMode ? card.type : ""
+              card.revealed || isSpymaster ? card.type : ""
             }`}
           >
             {card.word}
